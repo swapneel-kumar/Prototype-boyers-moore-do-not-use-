@@ -1,0 +1,9 @@
+cflags = -Wall -Wextra -Werror -pedantic -fsanitize=address -g 
+
+
+
+rule cc
+  command = gcc $cflags  $in -o $out &&ASAN_OPTIONS=color=always ./output
+
+
+build output : cc main.c
