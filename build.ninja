@@ -1,4 +1,4 @@
-cflags = -Wall -Wextra -Werror -pedantic -fsanitize=address -g 
+cflags =-w -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wmissing-prototypes -Wstrict-prototypes -pedantic -fsanitize=address -fsanitize=undefined -g  
 
 
 
@@ -6,4 +6,4 @@ rule cc
   command = gcc $cflags  $in -o $out &&ASAN_OPTIONS=color=always ./output
 
 
-build output : cc main.c
+build output : cc main_refactored.c
