@@ -156,7 +156,7 @@ size_t horsepool(char *buffer, long buf_elements, size_t buf_size,
   size_t pattern_end = i + key_length - 1;
   size_t key_index = key_length - 1;
 
-  while (i <= (size_t)buf_elements - pattern_end - 1) {
+  while (i <= (size_t)buf_elements - key_length) {
 
     while (buffer[pattern_end] == key[key_index]) {
 
@@ -167,7 +167,17 @@ size_t horsepool(char *buffer, long buf_elements, size_t buf_size,
         return i;
       }
     }
+    if (buffer[pattern_end] - 'a' < 0 || buffer[pattern_end] - 'a' > 25) {
+      i++;
+      count = 0;
+      pattern_end = i + key_length - 1;
+      key_index = key_length - 1;
+      continue;
+    }
     i = i + jump_table[buffer[pattern_end] - 'a'];
+    count = 0;
+    pattern_end = i + key_length - 1;
+    key_index = key_length - 1;
   }
 
   return WORD_NOT_FOUND_IN_BUFFER;
