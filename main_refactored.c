@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <fenv.h>
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -13,6 +14,7 @@ enum Errors {
   INVALID_LENGTH_KEY = -1001,
   TOO_FEW_ARGUMENTS = -1002,
   WORD_NOT_FOUND_IN_BUFFER = -1003,
+  INVALID_FILE_LENGTH = -1004
 };
 
 int err_handler(long error_code);
@@ -22,8 +24,8 @@ long file_reader(int fd, char buffer[]);
 size_t *jump_table_create(size_t arr[], size_t key_length,
                           char key[key_length]);
 
-size_t horsepool(char *buffer, long buf_elements, size_t buf_size,
-                 size_t *jump_table, char *key, size_t key_length);
+int horsepool(char *buffer, long buf_elements, size_t buf_size,
+              size_t *jump_table, char *key, size_t key_length);
 
 int main(int argc, char *key[]) {
 
@@ -67,6 +69,9 @@ int main(int argc, char *key[]) {
   long buf_size = file_reader(fd, buffer);
   if (buf_size < 0) {
     err_handler(buf_size);
+    goto free_memory;
+  } else if (buf_size < size_of_key) {
+    err_handler(INVALID_FILE_LENGTH);
     goto free_memory;
   }
 
@@ -148,23 +153,27 @@ size_t *jump_table_create(size_t arr[], size_t key_length,
   return arr;
 }
 
-size_t horsepool(char *buffer, long buf_elements, size_t buf_size,
-                 size_t *jump_table, char *key, size_t key_length) {
+int horsepool(char *buffer, long buf_elements, size_t buf_size,
+              size_t *jump_table, char *key, size_t key_length) {
 
   size_t i = 0;
   size_t count = 0;
   size_t pattern_end = i + key_length - 1;
   size_t key_index = key_length - 1;
 
+  if (buf_elements < key_length) {
+    return INVALID_FILE_LENGTH;
+  }
+
   while (i <= (size_t)buf_elements - key_length) {
 
     while (buffer[pattern_end] == key[key_index]) {
-
+      // chances of underflow here
       pattern_end--;
       key_index--;
       count++;
       if (count == key_length) {
-        return i;
+        return (int)i;
       }
     }
     if (buffer[pattern_end] - 'a' < 0 || buffer[pattern_end] - 'a' > 25) {
@@ -174,7 +183,7 @@ size_t horsepool(char *buffer, long buf_elements, size_t buf_size,
       key_index = key_length - 1;
       continue;
     }
-    i = i + jump_table[buffer[pattern_end] - 'a'];
+    i = i + jump_table[buffer[i + key_length - 1] - 'a'];
     count = 0;
     pattern_end = i + key_length - 1;
     key_index = key_length - 1;
@@ -205,6 +214,11 @@ int err_handler(long error_code) {
   case WORD_NOT_FOUND_IN_BUFFER:
     error_reason = "The string was not found";
     break;
+
+  case INVALID_FILE_LENGTH:
+    error_reason = "File is shorter than the key";
+    break;
+
   default:
     error_reason = strerror(-(int)error_code);
   }

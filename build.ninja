@@ -1,4 +1,4 @@
-cflags =-w -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wmissing-prototypes -Wstrict-prototypes -pedantic -fsanitize=address -fsanitize=undefined -g  
+cflags = -Wall -Wextra -Werror -Wconversion -Wsign-conversion -Wmissing-prototypes -Wstrict-prototypes -pedantic -fsanitize=address -fsanitize=undefined -g  
 
 
 
