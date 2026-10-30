@@ -8,19 +8,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
 enum Errors {
   INVALID_KEY = -1000,
   INVALID_LENGTH_KEY = -1001,
   TOO_FEW_ARGUMENTS = -1002,
   WORD_NOT_FOUND_IN_BUFFER = -1003,
-  INVALID_FILE_LENGTH = -1004
+  INVALID_FILE_LENGTH = -1004,
+  WORD_NOT_FOUND = -1005
 };
 
 int err_handler(long error_code);
 int key_validator(char key[], size_t size_of_key);
 int file_open(void);
-long file_reader(int fd, char buffer[]);
+long file_reader(int fd, char buffer[], size_t space_left);
 size_t *jump_table_create(size_t arr[], size_t key_length,
                           char key[key_length]);
 
@@ -66,16 +68,23 @@ int main(int argc, char *key[]) {
     return EXIT_FAILURE;
   }
 
-  long buf_size = file_reader(fd, buffer);
+  int space_left = 4096;
+
+  size_t *jump_table = jump_table_create(arr, size_of_key, key[1]);
+
+  long buf_size = file_reader(fd, buffer, space_left);
+
   if (buf_size < 0) {
     err_handler(buf_size);
     goto free_memory;
+  } else if (buf_size == 0) {
+    err_handler(WORD_NOT_FOUND);
+    goto free_memory;
+
   } else if (buf_size < size_of_key) {
     err_handler(INVALID_FILE_LENGTH);
     goto free_memory;
   }
-
-  size_t *jump_table = jump_table_create(arr, size_of_key, key[1]);
 
   exit_code =
       horsepool(buffer, buf_size, 4096, jump_table, key[1], size_of_key);
@@ -83,15 +92,50 @@ int main(int argc, char *key[]) {
   if (exit_code == WORD_NOT_FOUND_IN_BUFFER) {
 
     err_handler(WORD_NOT_FOUND_IN_BUFFER);
-    goto free_memory;
-  } else {
-    write(1, "The string was succesfully found\n", 33);
+    memcpy(buffer, buffer + space_left - size_of_key + 1, size_of_key - 1);
   }
+  if (exit_code >= 0) {
+    write(1, "The string was succesfully found\n", 33);
 
-  free(buffer);
-  close(fd);
+    free(buffer);
+    buffer = NULL;
+    close(fd);
 
-  return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
+  }
+  while (1) {
+    long buf_size = file_reader(fd, buffer, space_left);
+
+    if (buf_size < 0) {
+      err_handler(buf_size);
+      goto free_memory;
+    } else if (buf_size == 0) {
+      err_handler(WORD_NOT_FOUND);
+      goto free_memory;
+
+    } else if (buf_size < size_of_key) {
+      err_handler(INVALID_FILE_LENGTH);
+      goto free_memory;
+    }
+
+    exit_code =
+        horsepool(buffer, buf_size, 4096, jump_table, key[1], size_of_key);
+
+    if (exit_code == WORD_NOT_FOUND_IN_BUFFER) {
+
+      err_handler(WORD_NOT_FOUND_IN_BUFFER);
+      memcpy(buffer, buffer + space_left - size_of_key + 1, size_of_key - 1);
+    }
+    if (exit_code >= 0) {
+      write(1, "The string was succesfully found\n", 33);
+
+      free(buffer);
+      buffer = NULL;
+      close(fd);
+
+      return EXIT_SUCCESS;
+    }
+  }
 
 free_memory:
 
@@ -127,9 +171,9 @@ int file_open(void) {
   return fd;
 }
 
-long file_reader(int fd, char buffer[]) {
+long file_reader(int fd, char buffer[], size_t space_left) {
 
-  long exit_code = read(fd, buffer, 4096);
+  long exit_code = read(fd, buffer, space_left);
 
   if (exit_code < 0) {
     int err = -errno;
@@ -161,11 +205,9 @@ int horsepool(char *buffer, long buf_elements, size_t buf_size,
   size_t pattern_end = i + key_length - 1;
   size_t key_index = key_length - 1;
 
-  if (buf_elements < key_length) {
-    return INVALID_FILE_LENGTH;
-  }
-
   while (i <= (size_t)buf_elements - key_length) {
+
+    pattern_end = i + key_length - 1;
 
     while (buffer[pattern_end] == key[key_index]) {
       // chances of underflow here
@@ -176,16 +218,15 @@ int horsepool(char *buffer, long buf_elements, size_t buf_size,
         return (int)i;
       }
     }
+
     if (buffer[pattern_end] - 'a' < 0 || buffer[pattern_end] - 'a' > 25) {
-      i++;
+      i = i + key_length;
       count = 0;
-      pattern_end = i + key_length - 1;
       key_index = key_length - 1;
       continue;
     }
     i = i + jump_table[buffer[i + key_length - 1] - 'a'];
     count = 0;
-    pattern_end = i + key_length - 1;
     key_index = key_length - 1;
   }
 
@@ -212,13 +253,14 @@ int err_handler(long error_code) {
     break;
 
   case WORD_NOT_FOUND_IN_BUFFER:
-    error_reason = "The string was not found";
-    break;
-
+    return -2000;
   case INVALID_FILE_LENGTH:
     error_reason = "File is shorter than the key";
     break;
 
+  case WORD_NOT_FOUND:
+    error_reason = "Word was not found";
+    break;
   default:
     error_reason = strerror(-(int)error_code);
   }
