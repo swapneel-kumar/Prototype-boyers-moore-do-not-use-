@@ -8,4 +8,5 @@ currently only searches for lowercase ascii words or patterns
 Todo 
 1. Planning on replacing read() with a even more fundamental function to avoid context switching between kernel and user mode
 2. Making it support utf-8
+3. Planning on adding multithreading
 
