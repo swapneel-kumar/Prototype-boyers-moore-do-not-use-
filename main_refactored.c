@@ -104,7 +104,7 @@ int main(int argc, char *key[]) {
   }
   while (1) {
     long buf_size =
-        file_reader(fd, buffer + size_of_key, space_left - size_of_key);
+        file_reader(fd, buffer + size_of_key - 1, space_left - size_of_key);
 
     if (buf_size < 0) {
       err_handler(buf_size);
@@ -118,15 +118,13 @@ int main(int argc, char *key[]) {
       goto free_memory;
     }
 
-    buf_size = buf_size + size_of_key - 1;
-
-    exit_code =
-        horsepool(buffer, buf_size, 4096, jump_table, key[1], size_of_key);
+    exit_code = horsepool(buffer, buf_size + size_of_key, 4096, jump_table,
+                          key[1], size_of_key);
 
     if (exit_code == WORD_NOT_FOUND_IN_BUFFER) {
 
       err_handler(WORD_NOT_FOUND_IN_BUFFER);
-      memcpy(buffer, buffer + space_left - size_of_key + 1, size_of_key - 1);
+      memcpy(buffer, buffer + buf_size - size_of_key + 1, size_of_key - 1);
     }
     if (exit_code >= 0) {
       write(1, "The string was succesfully found\n", 33);
