@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <fenv.h>
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -104,7 +103,8 @@ int main(int argc, char *key[]) {
     return EXIT_SUCCESS;
   }
   while (1) {
-    long buf_size = file_reader(fd, buffer, space_left);
+    long buf_size =
+        file_reader(fd, buffer + size_of_key, space_left - size_of_key);
 
     if (buf_size < 0) {
       err_handler(buf_size);
@@ -117,6 +117,8 @@ int main(int argc, char *key[]) {
       err_handler(INVALID_FILE_LENGTH);
       goto free_memory;
     }
+
+    buf_size = buf_size + size_of_key - 1;
 
     exit_code =
         horsepool(buffer, buf_size, 4096, jump_table, key[1], size_of_key);
@@ -269,5 +271,6 @@ int err_handler(long error_code) {
 
   write(2, error_reason, error_reason_string_length);
   write(2, "\n", 1);
+
   return 0;
 }
